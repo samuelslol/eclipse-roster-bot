@@ -357,7 +357,9 @@ async function updateRosterMessage(triggerMessage) {
         return;
       }
     }
-    const sent = await triggerMessage.channel.send({ embeds: [buildRosterEmbed()] });
+    // Si no hay mensaje previo o no se pudo editar, enviar uno nuevo
+    const channel = triggerMessage.channel;
+    const sent = await channel.send({ embeds: [buildRosterEmbed()] });
     rosterMessageId = sent.id;
     rosterChannelId = sent.channel.id;
   } catch (err) {
@@ -365,496 +367,23 @@ async function updateRosterMessage(triggerMessage) {
   }
 }
 
-client.on("messageCreate", async (message) => {
+// ------------------------------------------------------
+// Comando: !addcat <nombre> [posicion]
+// ------------------------------------------------------
+client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
-  // Solo permitir comandos de roster en canal específico
-  const ROSTER_CHANNEL_ID = '1373410183853772849';
-  const isRosterChannel = message.channel.id === ROSTER_CHANNEL_ID;
-
-  // ------------------------------------------------------
-  // Comando de roles: +pass @usuario
-  // Acciones: +Eclipse, -Guest, +Trial
-  // Solo administradores.
-  // ------------------------------------------------------
-  if (message.content.toLowerCase().startsWith("+pass")) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
-    if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
-      return replyWarnMessage(message, 'You lack Administrator permission.');
-    }
-    const ECLIPSE_ROLE_ID = '1373410183312703568';
-    const GUEST_ROLE_ID   = '1373410183249920113';
-    const TRIAL_ROLE_ID   = '1373410183312703569';
-
-    // Obtener target: mención o fragmento de nombre
-    let target = message.mentions.members?.first();
-    if (!target) {
-      const parts = message.content.trim().split(/\s+/).slice(1); // quitar comando
-      if (!parts.length) return replyWarnMessage(message, 'Usage: +pass @user OR +pass partialName');
-      const queryRaw = parts.join(' ');
-      try { await message.guild.members.fetch(); } catch(_) {}
-      const res = smartFindMember(message.guild, queryRaw);
-      if (res.status === 'none') return replyWarnMessage(message, `No user found matching "${queryRaw}"`);
-      if (res.status === 'multi') {
-        const sample = [...res.matches.values()].slice(0,5).map(m=>m.user.tag).join(', ');
-        return replyWarnMessage(message, `Multiple matches (${res.matches.size}). Be more specific. Examples: ${sample}`);
-      }
-      target = res.member;
-    }
-
-    // Verificar que el bot tiene permisos
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return replyWarnMessage(message, 'Bot lacks Manage Roles permission.');
-    }
-
-    const roleAddIds = [];
-    const roleRemoveIds = [];
-    const changes = [];
-
-    const eclipseRole = message.guild.roles.cache.get(ECLIPSE_ROLE_ID);
-    const guestRole   = message.guild.roles.cache.get(GUEST_ROLE_ID);
-    const trialRole   = message.guild.roles.cache.get(TRIAL_ROLE_ID);
-
-    if (!eclipseRole || !guestRole || !trialRole) {
-      return replyWarnMessage(message, 'One or more role IDs are invalid (check code).');
-    }
-
-    // Evitar intentar asignar roles por encima del bot
-    const botHighest = message.guild.members.me.roles.highest.position;
-    for (const r of [eclipseRole, guestRole, trialRole]) {
-      if (r.position >= botHighest) {
-        return replyWarnMessage(message, `Role ${r.name} is above (or equal to) my highest role.`);
-      }
-    }
-
-    // Añadir Eclipse
-    if (!target.roles.cache.has(ECLIPSE_ROLE_ID)) {
-      roleAddIds.push(ECLIPSE_ROLE_ID);
-      changes.push(`+${eclipseRole.name}`);
-    }
-    // Añadir Trial
-    if (!target.roles.cache.has(TRIAL_ROLE_ID)) {
-      roleAddIds.push(TRIAL_ROLE_ID);
-      changes.push(`+${trialRole.name}`);
-    }
-    // Remover Guest
-    if (target.roles.cache.has(GUEST_ROLE_ID)) {
-      roleRemoveIds.push(GUEST_ROLE_ID);
-      changes.push(`-${guestRole.name}`);
-    }
-
-    if (!changes.length) {
-      try { await message.react('⚠️'); } catch (_) {}
-      return replyWarnMessage(message, 'No changes to apply for that user.', { deleteMs: 4000 });
-    }
-
-    try {
-      if (roleAddIds.length) await target.roles.add(roleAddIds, `+pass por ${message.author.tag}`);
-      if (roleRemoveIds.length) await target.roles.remove(roleRemoveIds, `+pass por ${message.author.tag}`);
-    } catch (err) {
-      console.error("Error modificando roles:", err);
-      return replyWarnMessage(message, 'Error applying role changes (see console).');
-    }
-
-    const embedResponse = new EmbedBuilder()
-      .setColor("#FFA500")
-      .setDescription(`✅ Changed roles for ${target}: ${changes.join(', ')}`);
-
-    try { await message.react('✅'); } catch (_) {}
-    message.channel.send({ embeds: [embedResponse] }).catch(()=>{});
-    return; // No continuar con otros handlers
-  }
-
-  // ------------------------------------------------------
-  // Comando de roles: +purge @usuario
-  // Remueve roles Eclipse (2 IDs), Trial y Academy, asigna Guest
-  // Solo administradores.
-  // ------------------------------------------------------
-  if (message.content.toLowerCase().startsWith("+purge")) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
-    if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
-      return replyWarnMessage(message, 'You lack Administrator permission.');
-    }
-  const ECLIPSE_ROLE_IDS = ['1373410183312703570','1373410183312703568'];
-  const TRIAL_ROLE_ID    = '1373410183312703569';
-  const ACADEMY_ROLE_ID  = '1388667580407087154';
-  const GUEST_ROLE_ID    = '1373410183249920113';
-
-    let target = message.mentions.members?.first();
-    if (!target) {
-      const parts = message.content.trim().split(/\s+/).slice(1);
-      if (!parts.length) return replyWarnMessage(message, 'Usage: +purge @user OR +purge partialName');
-      const queryRaw = parts.join(' ');
-      try { await message.guild.members.fetch(); } catch(_) {}
-      const res = smartFindMember(message.guild, queryRaw);
-      if (res.status === 'none') return replyWarnMessage(message, `No user found matching "${queryRaw}"`);
-      if (res.status === 'multi') {
-        const sample = [...res.matches.values()].slice(0,5).map(m=>m.user.tag).join(', ');
-        return replyWarnMessage(message, `Multiple matches (${res.matches.size}). Be more specific. Examples: ${sample}`);
-      }
-      target = res.member;
-    }
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return replyWarnMessage(message, 'Bot lacks Manage Roles permission.');
-    }
-
-    const guestRole = message.guild.roles.cache.get(GUEST_ROLE_ID);
-    if (!guestRole) {
-      return replyWarnMessage(message, 'Guest role not found (check ID).');
-    }
-
-    const toRemove = [];
-    const changes = [];
-
-    for (const rid of ECLIPSE_ROLE_IDS) {
-      if (target.roles.cache.has(rid)) {
-        toRemove.push(rid);
-      }
-    }
-    if (target.roles.cache.has(TRIAL_ROLE_ID)) {
-      toRemove.push(TRIAL_ROLE_ID);
-    }
-    if (target.roles.cache.has(ACADEMY_ROLE_ID)) {
-      toRemove.push(ACADEMY_ROLE_ID);
-    }
-
-    // Ordenar para evitar duplicados accidentales
-    const uniqueRemove = [...new Set(toRemove)];
-
-    // Quitar roles
-    try {
-      if (uniqueRemove.length) {
-        await target.roles.remove(uniqueRemove, `+purge por ${message.author.tag}`);
-        const removedNames = uniqueRemove.map(id => message.guild.roles.cache.get(id)?.name || id);
-        for (const rn of removedNames) changes.push(`-${rn}`);
-      }
-    } catch (err) {
-      console.error("Error removiendo roles en +purge:", err);
-      return replyWarnMessage(message, 'Error removing roles (see console).');
-    }
-
-    // Añadir Guest si no lo tiene
-    if (!target.roles.cache.has(GUEST_ROLE_ID)) {
-      try {
-        await target.roles.add(GUEST_ROLE_ID, `+purge por ${message.author.tag}`);
-        changes.push(`+${guestRole.name}`);
-      } catch (err) {
-        console.error("Error añadiendo Guest en +purge:", err);
-        return replyWarnMessage(message, 'Error assigning Guest role.');
-      }
-    }
-
-    // Resetear nickname si tiene uno distinto al username
-    const hadNickname = !!target.nickname;
-    if (hadNickname) {
-      // Verificar permiso para cambiar apodos
-      if (message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
-        try {
-          await target.setNickname(null, `Reset por +purge (${message.author.tag})`);
-          changes.push(`reset-nick`);
-        } catch (err) {
-          console.warn("No se pudo resetear nickname en +purge:", err);
-        }
-      } else {
-        console.warn("El bot no tiene ManageNicknames para resetear apodos.");
-      }
-    }
-
-    if (!changes.length) {
-      try { await message.react('❌'); } catch(_) {}
-      const noChangeEmbed = buildWarnEmbed('Nothing to purge: no roles removed and Guest already present.');
-      message.channel.send({ embeds: [noChangeEmbed] }).catch(()=>{});
-      return; 
-    }
-
-    const purgeEmbed = new EmbedBuilder()
-      .setColor('#E74C3C') // rojo
-      .setDescription(`🧹 Purged roles for ${target}: ${changes.join(', ')}`);
-    try { await message.react('🧹'); } catch(_) {}
-    message.channel.send({ embeds: [purgeEmbed] }).catch(()=>{});
-    return;
-  }
-
-  // ------------------------------------------------------
-  // Comando de roles: +eclp @usuario | +eclp parteDelNombre
-  // Promueve: quita Trial y pone Eclipse (ID específico 1373410183312703570)
-  // Solo administradores (igual que +pass)
-  // ------------------------------------------------------
-  if (message.content.toLowerCase().startsWith('+eclp')) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
-    if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
-      return replyWarnMessage(message, 'You lack Administrator permission.');
-    }
-    const ECLIPSE_ROLE_ID_PROMO = '1373410183312703570';
-    const ECLIPSE_ROLE_ID_BASE = '1373410183312703568'; // ensure base role also present
-    const GUEST_ROLE_ID = '1373410183249920113'; // remove Guest if present
-    const TRIAL_ROLE_ID = '1373410183312703569';
-  const ACADEMY_ROLE_ID = '1388667580407087154'; // also add Academy role on promotion
-
-    let target = message.mentions.members?.first();
-    if (!target) {
-      const parts = message.content.trim().split(/\s+/).slice(1);
-      if (!parts.length) return replyWarnMessage(message, 'Usage: +eclp @user OR +eclp partialName');
-      const queryRaw = parts.join(' ');
-      try { await message.guild.members.fetch(); } catch(_) {}
-      const res = smartFindMember(message.guild, queryRaw);
-      if (res.status === 'none') return replyWarnMessage(message, `No user found matching "${queryRaw}"`);
-      if (res.status === 'multi') {
-        const sample = [...res.matches.values()].slice(0,5).map(m=>m.user.tag).join(', ');
-        return replyWarnMessage(message, `Multiple matches (${res.matches.size}). Be more specific. Examples: ${sample}`);
-      }
-      target = res.member;
-    }
-
-    if (!message.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return replyWarnMessage(message, 'Bot lacks Manage Roles permission.');
-    }
-
-    const eclipseRolePromo = message.guild.roles.cache.get(ECLIPSE_ROLE_ID_PROMO);
-    const eclipseRoleBase = message.guild.roles.cache.get(ECLIPSE_ROLE_ID_BASE);
-    const guestRole = message.guild.roles.cache.get(GUEST_ROLE_ID);
-    const trialRole = message.guild.roles.cache.get(TRIAL_ROLE_ID);
-    const academyRole = message.guild.roles.cache.get(ACADEMY_ROLE_ID);
-    if (!eclipseRolePromo || !eclipseRoleBase || !trialRole) {
-      return replyWarnMessage(message, 'One or more role IDs invalid (Eclipse base/promo or Trial).');
-    }
-
-    const botHighest = message.guild.members.me.roles.highest.position;
-    for (const r of [eclipseRolePromo, eclipseRoleBase, trialRole, guestRole, academyRole]) {
-      if (r && r.position >= botHighest) {
-        return replyWarnMessage(message, `Role ${r.name} is above (or equal to) my highest role.`);
-      }
-    }
-
-    const adds = [];
-    const removes = [];
-    const changes = [];
-
-    if (!target.roles.cache.has(ECLIPSE_ROLE_ID_PROMO)) {
-      adds.push(ECLIPSE_ROLE_ID_PROMO);
-      changes.push(`+${eclipseRolePromo.name}`);
-    }
-    if (!target.roles.cache.has(ECLIPSE_ROLE_ID_BASE)) {
-      adds.push(ECLIPSE_ROLE_ID_BASE);
-      changes.push(`+${eclipseRoleBase.name}`);
-    }
-    if (target.roles.cache.has(TRIAL_ROLE_ID)) {
-      removes.push(TRIAL_ROLE_ID);
-      changes.push(`-${trialRole.name}`);
-    }
-    if (guestRole && target.roles.cache.has(GUEST_ROLE_ID)) {
-      removes.push(GUEST_ROLE_ID);
-      changes.push(`-${guestRole.name}`);
-    }
-    if (academyRole && !target.roles.cache.has(ACADEMY_ROLE_ID)) {
-      adds.push(ACADEMY_ROLE_ID);
-      changes.push(`+${academyRole.name}`);
-    }
-
-    if (!changes.length) {
-      try { await message.react('⚠️'); } catch(_) {}
-      return replyWarnMessage(message, 'Nothing to change: already Eclipse or lacks Trial.', { deleteMs: 4000 });
-    }
-
-    try {
-      if (adds.length) await target.roles.add(adds, `+eclp por ${message.author.tag}`);
-      if (removes.length) await target.roles.remove(removes, `+eclp por ${message.author.tag}`);
-    } catch (err) {
-      console.error('Error en +eclp:', err);
-      return replyWarnMessage(message, 'Error applying role changes (see console).');
-    }
-
-    const promoEmbed = new EmbedBuilder()
-      .setColor('#9B59B6')
-      .setDescription(`🌟 Promotion applied to ${target}: ${changes.join(', ')}`);
-    try { await message.react('🌟'); } catch(_) {}
-    message.channel.send({ embeds: [promoEmbed] }).catch(()=>{});
-    return;
-  }
-
-  // ------------------------------------------------------
-  // Cambiar estilo: +estilo <nombre>  (alias: +estilos)
-  // ------------------------------------------------------
-  if (message.content.toLowerCase().startsWith('+estilo') || message.content.toLowerCase().startsWith('+styles')) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
-    const parts = message.content.trim().split(/\s+/);
-    if (parts.length < 2) {
-      return message.channel.send({ embeds: [buildWarnEmbed(`Available styles: ${Object.keys(memberStyles).join(', ')} | Usage: +estilo name (alias: +styles name)`)] });
-    }
-    const style = parts[1].toLowerCase();
-    if (!memberStyles[style]) {
-      return message.channel.send({ embeds: [buildWarnEmbed(`Invalid style. Use one of: ${Object.keys(memberStyles).join(', ')}`)] });
-    }
-    currentStyleKey = style;
-    try { await message.react('🎨'); } catch (_) {}
-    await updateRosterMessage(message);
-    setTimeout(() => { message.delete().catch(() => {}); }, 800);
-    return;
-  }
-
-  // ------------------------------------------------------
-  // Ayuda: +help
-  // ------------------------------------------------------
-  if (message.content.toLowerCase() === '+help') {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
-    const ALLOWED_ROLE_IDS = ['1373410183333679152','1373410183333679151']; // unique list provided
-    const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
-    const hasAllowedRole = message.member?.roles?.cache?.some(r => ALLOWED_ROLE_IDS.includes(r.id));
-    if (!isAdmin && !hasAllowedRole) {
-      return replyWarnMessage(message, 'Help command restricted: need Administrator or required role.');
-    }
-    const helpEmbed = new EmbedBuilder()
-      .setTitle('📋 Roster Commands')
-      .setColor('#00FF00')
-      .setDescription('Editable roster management:')
-      .addFields(
-        { name: '`+name category`', value: 'Add member (category can be partial). Ex: `+Shamu ecli` -> Eclipse' },
-        { name: '`+category name`', value: 'Inverse order also works. Ex: `+tri Atlas` -> Trial' },
-        { name: '`-name`', value: 'Remove member. Ex: `-Camsita`' },
-        { name: '`!roster`', value: 'Create or refresh roster message' },
-        { name: '`+estilo name`', value: 'Change style. Ex: +estilo sparkle' },
-        { name: 'Styles', value: Object.keys(memberStyles).join(', ') },
-        { name: 'Categories', value: 'Council, Staff, Moderador, Eclipse, Trial (partials ok: coun, sta, mod, ecli, tri)' }
-      );
-    message.channel.send({ embeds: [helpEmbed] });
-    return;
-  }
-
-  // Añadir miembro: +nombre categoría
-  if (message.content.startsWith("+")) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
-    const args = message.content.slice(1).trim().split(/\s+/);
-    if (args.length < 2) {
-      message.channel.send({ embeds: [buildWarnEmbed('Usage: +name category OR +category name. Category can be partial (ecli, tri, coun, sta, mod).')] });
-      return;
-    }
-    let role = null;
-    let name = null;
-    // Strategy: try last token as category fragment first
-    const lastToken = args[args.length - 1];
-    const lastRes = resolveCategoryFragment(lastToken);
-    if (lastRes.status === 'ok') {
-      role = lastRes.category;
-      name = args.slice(0, -1).join(' ');
-    } else if (lastRes.status === 'ambiguous') {
-      return message.channel.send({ embeds: [buildWarnEmbed(`Ambiguous category fragment '${lastToken}'. Matches: ${lastRes.matches.join(', ')}`)] });
-    } else {
-      // Try first token
-      const firstToken = args[0];
-      const firstRes = resolveCategoryFragment(firstToken);
-      if (firstRes.status === 'ok') {
-        role = firstRes.category;
-        name = args.slice(1).join(' ');
-      } else if (firstRes.status === 'ambiguous') {
-        return message.channel.send({ embeds: [buildWarnEmbed(`Ambiguous category fragment '${firstToken}'. Matches: ${firstRes.matches.join(', ')}`)] });
-      }
-    }
-
-    if (!role) {
-      return message.channel.send({ embeds: [buildWarnEmbed('Invalid or missing category fragment. Try: coun, sta, mod, ecli, tri.')] });
-    }
-
-    // Normalizar nombre a Title Case
-    name = name.trim();
-    if (!name.length) {
-      message.channel.send({ embeds: [buildWarnEmbed('Empty name.')] });
-      return;
-    }
-    if (name.length > 32) {
-      message.channel.send({ embeds: [buildWarnEmbed('Name too long (max 32 chars).')] });
-      return;
-    }
-    const displayName = normalizeDisplayName(name);
-    const lowerName = displayName.toLowerCase();
-    let previousRole = null;
-    for (const r in roster) {
-      const idx = roster[r].findIndex(n => n.toLowerCase() === lowerName);
-      if (idx !== -1) {
-        previousRole = r;
-        // Si ya está en la misma categoría, nada que hacer
-        if (r === role) {
-          try { await message.react('⚠️'); } catch (_) {}
-          setTimeout(() => { message.delete().catch(() => {}); }, 500);
-          return;
-        }
-        // Remover de la categoría anterior
-        roster[r].splice(idx, 1);
-        break;
-      }
-    }
-
-    // Añadir a la nueva categoría
-    roster[role].push(displayName);
-    roster[role].sort((a,b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
-    if (previousRole) {
-      // Reordenar la anterior también por prolijidad
-      roster[previousRole].sort((a,b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
-    }
-
-    // Reacción distinta si fue movimiento
-    const reaction = previousRole ? '🔁' : '✅';
-    try { await message.react(reaction); } catch (_) { /* ignorar */ }
-    await updateRosterMessage(message);
-      saveRoster();
-    setTimeout(() => { message.delete().catch(() => {}); }, 500);
-    return;
-  }
-
-  // Eliminar miembro: -nombre
-  if (message.content.startsWith("-")) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
-    let rawName = message.content.slice(1).trim();
-    if (!rawName) {
-      message.channel.send({ embeds: [buildWarnEmbed('Usage: -name OR -category name')] });
-      return;
-    }
-    // Permitir formato "-staff maria" o "-Staff Maria"
-    const tokens = rawName.split(/\s+/);
-    const possibleCategory = tokens[0].charAt(0).toUpperCase() + tokens[0].slice(1).toLowerCase();
-    if (roster[possibleCategory] && tokens.length > 1) {
-      // Ignorar la categoría para la búsqueda; quedarnos con el resto como nombre real
-      rawName = tokens.slice(1).join(' ');
-    }
-    const searchLower = rawName.toLowerCase();
-    let found = false;
-    for (const role in roster) {
-      const idx = roster[role].findIndex(n => n.toLowerCase() === searchLower);
-      if (idx !== -1) {
-        roster[role].splice(idx, 1);
-        found = true;
-        try { await message.react('❌'); } catch (_) { /* ignorar */ }
-        await updateRosterMessage(message);
-          saveRoster();
-        setTimeout(() => { message.delete().catch(() => {}); }, 500);
-        break;
-      }
-    }
-    if (!found) {
-      message.channel.send({ embeds: [buildWarnEmbed(`${normalizeDisplayName(rawName)} not found in roster.`)] });
-    }
-    return;
-  }
-
-  // Crear o refrescar el mensaje central del roster
-  if (message.content.toLowerCase() === "!roster") {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
-    await updateRosterMessage(message);
-    return;
-  }
-
+  const isRosterChannel = message.channel.id === process.env.ROSTER_CHANNEL_ID;
   // ------------------------------------------------------
   // Comando: !addcat <nombre>
-  // Agrega una nueva categoría vacía
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith('!addcat ')) {
     if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
-    // Permitir sintaxis: !addcat <nombre> [posicion]
     const parts = message.content.trim().split(/\s+/);
     if (parts.length < 2) return replyWarnMessage(message, 'Usage: !addcat <name> [position]');
     const catName = parts[1];
     let pos = parts.length > 2 ? parseInt(parts[2], 10) : null;
-    if (isNaN(pos) || pos === null) pos = Object.keys(roster).length; // por defecto al final
+    if (isNaN(pos) || pos === null) pos = Object.keys(roster).length;
     if (roster[catName]) return replyWarnMessage(message, `Category '${catName}' already exists.`);
-    // Insertar en la posición deseada
     const entries = Object.entries(roster);
     const newEntries = [
       ...entries.slice(0, pos),
@@ -866,6 +395,73 @@ client.on("messageCreate", async (message) => {
     await updateRosterMessage(message);
     return message.channel.send({ embeds: [buildWarnEmbed(`✅ Category '${catName}' added at position ${pos + 1}.`)] });
   }
+
+  // ------------------------------------------------------
+  // Comando: !delcat <nombre>
+  // ------------------------------------------------------
+  if (message.content.toLowerCase().startsWith('!delcat ')) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
+    const parts = message.content.trim().split(/\s+/);
+    if (parts.length < 2) return replyWarnMessage(message, 'Usage: !delcat <name>');
+    const frag = parts.slice(1).join(' ');
+    const categories = Object.keys(roster);
+    const lc = frag.toLowerCase();
+    let match = categories.find(c => c.toLowerCase() === lc);
+    if (!match) {
+      const prefixMatches = categories.filter(c => c.toLowerCase().startsWith(lc));
+      if (prefixMatches.length === 1) match = prefixMatches[0];
+      else if (prefixMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${prefixMatches.join(', ')}`);
+      else {
+        const includeMatches = categories.filter(c => c.toLowerCase().includes(lc));
+        if (includeMatches.length === 1) match = includeMatches[0];
+        else if (includeMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${includeMatches.join(', ')}`);
+      }
+    }
+    if (!match) return replyWarnMessage(message, `Category fragment '${frag}' does not match any category.`);
+    delete roster[match];
+    saveRoster();
+    await updateRosterMessage(message);
+    return message.channel.send({ embeds: [buildWarnEmbed(`🗑️ Category '${match}' and its members deleted.`)] });
+  }
+
+  // ------------------------------------------------------
+  // Comando: !editcat <old> <new>
+  // ------------------------------------------------------
+  if (message.content.toLowerCase().startsWith('!editcat ')) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
+    const parts = message.content.trim().split(/\s+/);
+    if (parts.length < 3) return replyWarnMessage(message, 'Usage: !editcat <oldName> <newName>');
+    const frag = parts[1];
+    const newName = parts.slice(2).join(' ');
+    const categories = Object.keys(roster);
+    const lc = frag.toLowerCase();
+    let match = categories.find(c => c.toLowerCase() === lc);
+    if (!match) {
+      const prefixMatches = categories.filter(c => c.toLowerCase().startsWith(lc));
+      if (prefixMatches.length === 1) match = prefixMatches[0];
+      else if (prefixMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${prefixMatches.join(', ')}`);
+      else {
+        const includeMatches = categories.filter(c => c.toLowerCase().includes(lc));
+        if (includeMatches.length === 1) match = includeMatches[0];
+        else if (includeMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${includeMatches.join(', ')}`);
+      }
+    }
+    if (!match) return replyWarnMessage(message, `Category fragment '${frag}' does not match any category.`);
+    if (roster[newName]) return replyWarnMessage(message, `Category '${newName}' already exists.`);
+    const entries = Object.entries(roster);
+    const idx = entries.findIndex(([k]) => k === match);
+  if (idx === -1) return replyWarnMessage(message, `Internal error: category not found.`);
+    const newEntries = [
+      ...entries.slice(0, idx),
+      [newName, roster[match]],
+      ...entries.slice(idx + 1)
+    ];
+    roster = Object.fromEntries(newEntries);
+    saveRoster();
+    await updateRosterMessage(message);
+    return message.channel.send({ embeds: [buildWarnEmbed(`✏️ Category '${match}' renamed to '${newName}'.`)] });
+  }
+
   try {
     // Siempre buscar el último mensaje de roster en el canal para editarlo
     const channel = triggerMessage.channel;
@@ -883,68 +479,6 @@ client.on("messageCreate", async (message) => {
   } catch (err) {
     console.error("Error actualizando/creando mensaje de roster:", err);
   }
-      // Buscar por prefix
-      const prefixMatches = categories.filter(c => c.toLowerCase().startsWith(lc));
-      if (prefixMatches.length === 1) match = prefixMatches[0];
-      else if (prefixMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${prefixMatches.join(', ')}`);
-      else {
-        // Buscar por includes
-        const includeMatches = categories.filter(c => c.toLowerCase().includes(lc));
-        if (includeMatches.length === 1) match = includeMatches[0];
-        else if (includeMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${includeMatches.join(', ')}`);
-      }
-    }
-    if (!match) return replyWarnMessage(message, `Category fragment '${frag}' does not match any category.`);
-    delete roster[match];
-    saveRoster();
-    await updateRosterMessage(message);
-    return message.channel.send({ embeds: [buildWarnEmbed(`🗑️ Category '${match}' and its members deleted.`)] });
-  }
-
-  // ------------------------------------------------------
-  // Comando: !editcat <old> <new>
-  // Renombra una categoría (mantiene los miembros)
-  // ------------------------------------------------------
-  if (message.content.toLowerCase().startsWith('!editcat ')) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
-    const parts = message.content.trim().split(/\s+/);
-    if (parts.length < 3) return replyWarnMessage(message, 'Usage: !editcat <oldName> <newName>');
-    const frag = parts[1];
-    const newName = parts.slice(2).join(' ');
-    // Buscar categoría por fragmento (no estricto)
-    const categories = Object.keys(roster);
-    const lc = frag.toLowerCase();
-    let match = categories.find(c => c.toLowerCase() === lc);
-    if (!match) {
-      // Buscar por prefix
-      const prefixMatches = categories.filter(c => c.toLowerCase().startsWith(lc));
-      if (prefixMatches.length === 1) match = prefixMatches[0];
-      else if (prefixMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${prefixMatches.join(', ')}`);
-      else {
-        // Buscar por includes
-        const includeMatches = categories.filter(c => c.toLowerCase().includes(lc));
-        if (includeMatches.length === 1) match = includeMatches[0];
-        else if (includeMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${includeMatches.join(', ')}`);
-      }
-    }
-    if (!match) return replyWarnMessage(message, `Category fragment '${frag}' does not match any category.`);
-    if (roster[newName]) return replyWarnMessage(message, `Category '${newName}' already exists.`);
-    // Mantener el orden original
-    const entries = Object.entries(roster);
-    const idx = entries.findIndex(([k]) => k === match);
-    if (idx === -1) return replyWarnMessage(message, `Internal error: category not found.`);
-    const newEntries = [
-      ...entries.slice(0, idx),
-      [newName, roster[match]],
-      ...entries.slice(idx + 1)
-    ];
-    roster = Object.fromEntries(newEntries);
-    saveRoster();
-    await updateRosterMessage(message);
-    return message.channel.send({ embeds: [buildWarnEmbed(`✏️ Category '${match}' renamed to '${newName}'.`)] });
-  }
-
-  // (Removed old !estilo and !help handlers)
 });
 
 // Token desde variable de entorno (regenera el tuyo y NO lo subas al código)
