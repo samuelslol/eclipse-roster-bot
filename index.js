@@ -837,6 +837,9 @@ client.on("messageCreate", async (message) => {
   // Crear o refrescar el mensaje central del roster
   if (message.content.toLowerCase() === "!roster") {
     if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
+    await updateRosterMessage(message);
+    return;
+  }
 
   // ------------------------------------------------------
   // Comando: !addcat <nombre>
@@ -887,9 +890,6 @@ client.on("messageCreate", async (message) => {
     saveRoster();
     await updateRosterMessage(message);
     return message.channel.send({ embeds: [buildWarnEmbed(`✏️ Category '${oldName}' renamed to '${newName}'.`)] });
-  }
-    await updateRosterMessage(message);
-    return;
   }
 
   // (Removed old !estilo and !help handlers)
