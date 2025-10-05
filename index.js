@@ -377,7 +377,7 @@ client.on("messageCreate", async (message) => {
   // Solo administradores.
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith("+pass")) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
+    // Eliminar restricción de canal para +pass
     if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
       return replyWarnMessage(message, 'You lack Administrator permission.');
     }
@@ -585,7 +585,7 @@ client.on("messageCreate", async (message) => {
   // Solo administradores (igual que +pass)
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith('+eclp')) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
+    // Eliminar restricción de canal para +eclp
     if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
       return replyWarnMessage(message, 'You lack Administrator permission.');
     }
