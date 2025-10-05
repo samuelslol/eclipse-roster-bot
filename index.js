@@ -400,7 +400,7 @@ client.on('messageCreate', async (message) => {
   // Comando: !delcat <nombre>
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith('!delcat ')) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
+    if (!isRosterChannel) return;
     const parts = message.content.trim().split(/\s+/);
     if (parts.length < 2) return replyWarnMessage(message, 'Usage: !delcat <name>');
     const frag = parts.slice(1).join(' ');
