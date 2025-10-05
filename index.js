@@ -847,30 +847,42 @@ client.on("messageCreate", async (message) => {
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith('!addcat ')) {
     if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
+    // Permitir sintaxis: !addcat <nombre> [posicion]
     const parts = message.content.trim().split(/\s+/);
-    if (parts.length < 2) return replyWarnMessage(message, 'Usage: !addcat <name>');
-    const catName = parts.slice(1).join(' ');
+    if (parts.length < 2) return replyWarnMessage(message, 'Usage: !addcat <name> [position]');
+    const catName = parts[1];
+    let pos = parts.length > 2 ? parseInt(parts[2], 10) : null;
+    if (isNaN(pos) || pos === null) pos = Object.keys(roster).length; // por defecto al final
     if (roster[catName]) return replyWarnMessage(message, `Category '${catName}' already exists.`);
-    roster[catName] = [];
+    // Insertar en la posición deseada
+    const entries = Object.entries(roster);
+    const newEntries = [
+      ...entries.slice(0, pos),
+      [catName, []],
+      ...entries.slice(pos)
+    ];
+    roster = Object.fromEntries(newEntries);
     saveRoster();
     await updateRosterMessage(message);
-    return message.channel.send({ embeds: [buildWarnEmbed(`✅ Category '${catName}' added.`)] });
+    return message.channel.send({ embeds: [buildWarnEmbed(`✅ Category '${catName}' added at position ${pos + 1}.`)] });
   }
-
-  // ------------------------------------------------------
-  // Comando: !delcat <nombre>
-  // Elimina una categoría y todos sus miembros
-  // ------------------------------------------------------
-  if (message.content.toLowerCase().startsWith('!delcat ')) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
-    const parts = message.content.trim().split(/\s+/);
-    if (parts.length < 2) return replyWarnMessage(message, 'Usage: !delcat <name>');
-    const frag = parts.slice(1).join(' ');
-    // Buscar categoría por fragmento (no estricto)
-    const categories = Object.keys(roster);
-    const lc = frag.toLowerCase();
-    let match = categories.find(c => c.toLowerCase() === lc);
-    if (!match) {
+  try {
+    // Siempre buscar el último mensaje de roster en el canal para editarlo
+    const channel = triggerMessage.channel;
+    const messages = await channel.messages.fetch({ limit: 10 });
+    const rosterMsg = messages.find(m => m.author.id === client.user.id && m.embeds.length && m.embeds[0].title && m.embeds[0].title.includes('Eclipse Official Roster'));
+    if (rosterMsg) {
+      await rosterMsg.edit({ embeds: [buildRosterEmbed()] });
+      rosterMessageId = rosterMsg.id;
+      rosterChannelId = rosterMsg.channel.id;
+    } else {
+      const sent = await channel.send({ embeds: [buildRosterEmbed()] });
+      rosterMessageId = sent.id;
+      rosterChannelId = sent.channel.id;
+    }
+  } catch (err) {
+    console.error("Error actualizando/creando mensaje de roster:", err);
+  }
       // Buscar por prefix
       const prefixMatches = categories.filter(c => c.toLowerCase().startsWith(lc));
       if (prefixMatches.length === 1) match = prefixMatches[0];
