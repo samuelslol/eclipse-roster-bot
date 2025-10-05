@@ -472,61 +472,7 @@ client.on('messageCreate', async (message) => {
     return message.channel.send({ embeds: [buildWarnEmbed(`🗑️ Category '${match}' and its members deleted.`)] });
   }
 
-  // ------------------------------------------------------
-  // Comando: !editcat <old> <new>
-  // ------------------------------------------------------
-  if (message.content.toLowerCase().startsWith('!editcat ')) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
-    const parts = message.content.trim().split(/\s+/);
-    if (parts.length < 3) return replyWarnMessage(message, 'Usage: !editcat <oldName> <newName>');
-    const frag = parts[1];
-    const newName = parts.slice(2).join(' ');
-    const categories = Object.keys(roster);
-    const lc = frag.toLowerCase();
-    let match = categories.find(c => c.toLowerCase() === lc);
-    if (!match) {
-      const prefixMatches = categories.filter(c => c.toLowerCase().startsWith(lc));
-      if (prefixMatches.length === 1) match = prefixMatches[0];
-      else if (prefixMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${prefixMatches.join(', ')}`);
-      else {
-        const includeMatches = categories.filter(c => c.toLowerCase().includes(lc));
-        if (includeMatches.length === 1) match = includeMatches[0];
-        else if (includeMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${includeMatches.join(', ')}`);
-      }
-    }
-    if (!match) return replyWarnMessage(message, `Category fragment '${frag}' does not match any category.`);
-    if (roster[newName]) return replyWarnMessage(message, `Category '${newName}' already exists.`);
-    const entries = Object.entries(roster);
-    const idx = entries.findIndex(([k]) => k === match);
-  if (idx === -1) return replyWarnMessage(message, `Internal error: category not found.`);
-    const newEntries = [
-      ...entries.slice(0, idx),
-      [newName, roster[match]],
-      ...entries.slice(idx + 1)
-    ];
-    roster = Object.fromEntries(newEntries);
-    saveRoster();
-    await updateRosterMessage(message);
-    return message.channel.send({ embeds: [buildWarnEmbed(`✏️ Category '${match}' renamed to '${newName}'.`)] });
-  }
-
-  try {
-    // Siempre buscar el último mensaje de roster en el canal para editarlo
-  const channel = message.channel;
-    const messages = await channel.messages.fetch({ limit: 10 });
-    const rosterMsg = messages.find(m => m.author.id === client.user.id && m.embeds.length && m.embeds[0].title && m.embeds[0].title.includes('Eclipse Official Roster'));
-    if (rosterMsg) {
-      await rosterMsg.edit({ embeds: [buildRosterEmbed()] });
-      rosterMessageId = rosterMsg.id;
-      rosterChannelId = rosterMsg.channel.id;
-    } else {
-      const sent = await channel.send({ embeds: [buildRosterEmbed()] });
-      rosterMessageId = sent.id;
-      rosterChannelId = sent.channel.id;
-    }
-  } catch (err) {
-    console.error("Error actualizando/creando mensaje de roster:", err);
-  }
+// ...existing code...
 });
 
 // Token desde variable de entorno (regenera el tuyo y NO lo subas al código)
