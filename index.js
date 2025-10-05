@@ -316,7 +316,7 @@ client.on('interactionCreate', async (interaction) => {
   if (academyRole && !target.roles.cache.has(ACADEMY_ROLE_ID)) { adds.push(ACADEMY_ROLE_ID); changes.push(`+${academyRole.name}`); }
     if (!changes.length) return interaction.reply({ content: '⚠️ Nothing to change.', ephemeral: true });
     try { if (adds.length) await target.roles.add(adds, `Slash /eclp by ${interaction.user.tag}`); if (removes.length) await target.roles.remove(removes, `Slash /eclp by ${interaction.user.tag}`); }
-    catch (err) { console.error('Slash /eclp error:', err); return interaction.reply({ content: '❌ Error applying roles.', ephemeral: true });
+    catch (err) { console.error('Slash /eclp error:', err); return interaction.reply({ content: '❌ Error applying roles.', ephemeral: true }); }
     const embed = new EmbedBuilder().setColor('#9B59B6').setDescription(`🌟 Promotion applied to ${target}: ${changes.join(', ')}`);
     await interaction.reply({ content: '🌟 Promotion done', ephemeral: true });
     sendPublicEmbed(embed);
@@ -672,102 +672,23 @@ client.on("messageCreate", async (message) => {
   }
 
   // ------------------------------------------------------
-  // Comando: !addcat <nombre> [posicion]
-  // Agrega una nueva categoría vacía
+  // Cambiar estilo: +estilo <nombre>  (alias: +estilos)
   // ------------------------------------------------------
-  if (message.content.toLowerCase().startsWith('!addcat ')) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
+  if (message.content.toLowerCase().startsWith('+estilo') || message.content.toLowerCase().startsWith('+styles')) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
     const parts = message.content.trim().split(/\s+/);
-    if (parts.length < 2) return replyWarnMessage(message, 'Usage: !addcat <name> [position]');
-    const catName = parts[1];
-    let pos = parts.length > 2 ? parseInt(parts[2], 10) : null;
-    if (isNaN(pos) || pos === null) pos = Object.keys(roster).length;
-    if (roster[catName]) return replyWarnMessage(message, `Category '${catName}' already exists.`);
-    const entries = Object.entries(roster);
-    const newEntries = [
-      ...entries.slice(0, pos),
-      [catName, []],
-      ...entries.slice(pos)
-    ];
-    roster = Object.fromEntries(newEntries);
-    saveRoster();
-    await updateRosterMessage(message);
-    return message.channel.send({ embeds: [buildWarnEmbed(`✅ Category '${catName}' added at position ${pos + 1}.`)] });
-  }
-
-  // ------------------------------------------------------
-  // Comando: !delcat <nombre>
-  // Elimina una categoría y todos sus miembros
-  // ------------------------------------------------------
-  if (message.content.toLowerCase().startsWith('!delcat ')) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
-    const parts = message.content.trim().split(/\s+/);
-    if (parts.length < 2) return replyWarnMessage(message, 'Usage: !delcat <name>');
-    const frag = parts.slice(1).join(' ');
-    // Buscar categoría por fragmento (no estricto)
-    const categories = Object.keys(roster);
-    const lc = frag.toLowerCase();
-    let match = categories.find(c => c.toLowerCase() === lc);
-    if (!match) {
-      // Buscar por prefix
-      const prefixMatches = categories.filter(c => c.toLowerCase().startsWith(lc));
-      if (prefixMatches.length === 1) match = prefixMatches[0];
-      else if (prefixMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${prefixMatches.join(', ')}`);
-      else {
-        // Buscar por includes
-        const includeMatches = categories.filter(c => c.toLowerCase().includes(lc));
-        if (includeMatches.length === 1) match = includeMatches[0];
-        else if (includeMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${includeMatches.join(', ')}`);
-      }
+    if (parts.length < 2) {
+      return message.channel.send({ embeds: [buildWarnEmbed(`Available styles: ${Object.keys(memberStyles).join(', ')} | Usage: +estilo name (alias: +styles name)`)] });
     }
-    if (!match) return replyWarnMessage(message, `Category fragment '${frag}' does not match any category.`);
-    delete roster[match];
-    saveRoster();
-    await updateRosterMessage(message);
-    return message.channel.send({ embeds: [buildWarnEmbed(`🗑️ Category '${match}' and its members deleted.`)] });
-  }
-
-  // ------------------------------------------------------
-  // Comando: !editcat <old> <new>
-  // Renombra una categoría (mantiene los miembros)
-  // ------------------------------------------------------
-  if (message.content.toLowerCase().startsWith('!editcat ')) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
-    const parts = message.content.trim().split(/\s+/);
-    if (parts.length < 3) return replyWarnMessage(message, 'Usage: !editcat <oldName> <newName>');
-    const frag = parts[1];
-    const newName = parts.slice(2).join(' ');
-    // Buscar categoría por fragmento (no estricto)
-    const categories = Object.keys(roster);
-    const lc = frag.toLowerCase();
-    let match = categories.find(c => c.toLowerCase() === lc);
-    if (!match) {
-      // Buscar por prefix
-      const prefixMatches = categories.filter(c => c.toLowerCase().startsWith(lc));
-      if (prefixMatches.length === 1) match = prefixMatches[0];
-      else if (prefixMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${prefixMatches.join(', ')}`);
-      else {
-        // Buscar por includes
-        const includeMatches = categories.filter(c => c.toLowerCase().includes(lc));
-        if (includeMatches.length === 1) match = includeMatches[0];
-        else if (includeMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${includeMatches.join(', ')}`);
-      }
+    const style = parts[1].toLowerCase();
+    if (!memberStyles[style]) {
+      return message.channel.send({ embeds: [buildWarnEmbed(`Invalid style. Use one of: ${Object.keys(memberStyles).join(', ')}`)] });
     }
-    if (!match) return replyWarnMessage(message, `Category fragment '${frag}' does not match any category.`);
-    if (roster[newName]) return replyWarnMessage(message, `Category '${newName}' already exists.`);
-    // Mantener el orden original
-    const entries = Object.entries(roster);
-    const idx = entries.findIndex(([k]) => k === match);
-    if (idx === -1) return replyWarnMessage(message, `Internal error: category not found.`);
-    const newEntries = [
-      ...entries.slice(0, idx),
-      [newName, roster[match]],
-      ...entries.slice(idx + 1)
-    ];
-    roster = Object.fromEntries(newEntries);
-    saveRoster();
+    currentStyleKey = style;
+    try { await message.react('🎨'); } catch (_) {}
     await updateRosterMessage(message);
-    return message.channel.send({ embeds: [buildWarnEmbed(`✏️ Category '${match}' renamed to '${newName}'.`)] });
+    setTimeout(() => { message.delete().catch(() => {}); }, 800);
+    return;
   }
 
   // ------------------------------------------------------
@@ -775,7 +696,7 @@ client.on("messageCreate", async (message) => {
   // ------------------------------------------------------
   if (message.content.toLowerCase() === '+help') {
     if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
-    const ALLOWED_ROLE_IDS = ['1373410183333679152','1373410183333679151'];
+    const ALLOWED_ROLE_IDS = ['1373410183333679152','1373410183333679151']; // unique list provided
     const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
     const hasAllowedRole = message.member?.roles?.cache?.some(r => ALLOWED_ROLE_IDS.includes(r.id));
     if (!isAdmin && !hasAllowedRole) {
@@ -791,11 +712,8 @@ client.on("messageCreate", async (message) => {
         { name: '`-name`', value: 'Remove member. Ex: `-Camsita`' },
         { name: '`!roster`', value: 'Create or refresh roster message' },
         { name: '`+estilo name`', value: 'Change style. Ex: +estilo sparkle' },
-        { name: '`!addcat <name> [position]`', value: 'Add a new category at a specific position. Ex: `!addcat Academy 2`' },
-        { name: '`!delcat <name>`', value: 'Delete a category and its members. Ex: `!delcat Academy`' },
-        { name: '`!editcat <old> <new>`', value: 'Rename a category. Ex: `!editcat Academy Trial2`' },
         { name: 'Styles', value: Object.keys(memberStyles).join(', ') },
-        { name: 'Categories', value: Object.keys(roster).join(', ') + ' (partials ok: coun, sta, mod, ecli, tri, ...)' }
+        { name: 'Categories', value: 'Council, Staff, Moderador, Eclipse, Trial (partials ok: coun, sta, mod, ecli, tri)' }
       );
     message.channel.send({ embeds: [helpEmbed] });
     return;
@@ -931,20 +849,34 @@ client.on("messageCreate", async (message) => {
     if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
     const parts = message.content.trim().split(/\s+/);
     if (parts.length < 2) return replyWarnMessage(message, 'Usage: !addcat <name> [position]');
-    const catName = parts[1];
-    let pos = parts.length > 2 ? parseInt(parts[2], 10) : null;
-    if (isNaN(pos) || pos === null) pos = Object.keys(roster).length;
+    // Si hay más de 2 partes y la última es un número, se toma como posición
+    let pos = null;
+    let catName = null;
+    if (parts.length > 2 && /^\d+$/.test(parts[parts.length - 1])) {
+      pos = parseInt(parts[parts.length - 1], 10);
+      catName = parts.slice(1, -1).join(' ');
+    } else {
+      catName = parts.slice(1).join(' ');
+    }
     if (roster[catName]) return replyWarnMessage(message, `Category '${catName}' already exists.`);
+    // Insertar en la posición indicada o al final
     const entries = Object.entries(roster);
-    const newEntries = [
-      ...entries.slice(0, pos),
-      [catName, []],
-      ...entries.slice(pos)
-    ];
+    let newEntries;
+    if (pos !== null && pos > 0 && pos <= entries.length + 1) {
+      // Insertar en el índice (pos-1)
+      newEntries = [
+        ...entries.slice(0, pos - 1),
+        [catName, []],
+        ...entries.slice(pos - 1)
+      ];
+    } else {
+      // Al final
+      newEntries = [...entries, [catName, []]];
+    }
     roster = Object.fromEntries(newEntries);
     saveRoster();
     await updateRosterMessage(message);
-    return message.channel.send({ embeds: [buildWarnEmbed(`✅ Category '${catName}' added at position ${pos + 1}.`)] });
+    return message.channel.send({ embeds: [buildWarnEmbed(`✅ Category '${catName}' added${pos !== null ? ` at position ${pos}` : ''}.`)] });
   }
 
   // ------------------------------------------------------
@@ -1021,6 +953,8 @@ client.on("messageCreate", async (message) => {
     await updateRosterMessage(message);
     return message.channel.send({ embeds: [buildWarnEmbed(`✏️ Category '${match}' renamed to '${newName}'.`)] });
   }
+
+  // (Removed old !estilo and !help handlers)
 });
 
 // Token desde variable de entorno (regenera el tuyo y NO lo subas al código)
