@@ -470,7 +470,7 @@ client.on("messageCreate", async (message) => {
   // Solo administradores.
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith("+purge")) {
-    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
+    // Eliminar restricción de canal para +purge
     if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
       return replyWarnMessage(message, 'You lack Administrator permission.');
     }
@@ -552,10 +552,15 @@ client.on("messageCreate", async (message) => {
           await target.setNickname(null, `Reset por +purge (${message.author.tag})`);
           changes.push(`reset-nick`);
         } catch (err) {
-          console.warn("No se pudo resetear nickname en +purge:", err);
+          if (err.code === 50013) {
+            // Permisos insuficientes, mostrar advertencia al usuario
+            message.channel.send({ embeds: [buildWarnEmbed('No se pudo resetear el nickname: faltan permisos de Manage Nicknames.')] });
+          } else {
+            console.warn("No se pudo resetear nickname en +purge:", err);
+          }
         }
       } else {
-        console.warn("El bot no tiene ManageNicknames para resetear apodos.");
+        message.channel.send({ embeds: [buildWarnEmbed('El bot no tiene permisos para cambiar apodos (Manage Nicknames).')] });
       }
     }
 
