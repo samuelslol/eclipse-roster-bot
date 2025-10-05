@@ -371,8 +371,55 @@ async function updateRosterMessage(triggerMessage) {
 // Comando: !addcat <nombre> [posicion]
 // ------------------------------------------------------
 client.on('messageCreate', async (message) => {
+  // ...existing code from tu ejemplo avanzado para +pass, +purge, +eclp, +help, etc...
   if (message.author.bot) return;
   const isRosterChannel = message.channel.id === process.env.ROSTER_CHANNEL_ID;
+
+  // ------------------------------------------------------
+  // Comando: !roster
+  // ------------------------------------------------------
+  if (message.content.toLowerCase().startsWith('!roster')) {
+    // Muestra el roster actual en el canal
+    await message.channel.send({ embeds: [buildRosterEmbed()] });
+    return;
+  }
+
+  // ------------------------------------------------------
+  // Comando: !help
+  // ------------------------------------------------------
+  if (message.content.toLowerCase().startsWith('!help')) {
+    const helpText = `**Comandos disponibles:**\n\n` +
+      `!roster - Muestra el roster actual\n` +
+      `!addcat <nombre> [posicion] - Añade una categoría\n` +
+      `!delcat <nombre> - Elimina una categoría\n` +
+      `!editcat <viejo> <nuevo> - Renombra una categoría\n` +
+      `\nTambién puedes usar los comandos con / (slash commands) si están habilitados.`;
+    await message.channel.send({ embeds: [buildWarnEmbed(helpText)] });
+    return;
+  }
+
+  // ------------------------------------------------------
+  // Comando: +roster
+  // ------------------------------------------------------
+  if (message.content.toLowerCase().startsWith('+roster')) {
+    await message.channel.send({ embeds: [buildRosterEmbed()] });
+    return;
+  }
+
+  // ------------------------------------------------------
+  // Comando: +help
+  // ------------------------------------------------------
+  if (message.content.toLowerCase().startsWith('+help')) {
+    const helpText = `**Comandos disponibles:**\n\n` +
+      `+roster - Muestra el roster actual\n` +
+      `+help - Muestra esta ayuda\n` +
+      `!addcat <nombre> [posicion] - Añade una categoría\n` +
+      `!delcat <nombre> - Elimina una categoría\n` +
+      `!editcat <viejo> <nuevo> - Renombra una categoría\n` +
+      `\nTambién puedes usar los comandos con / (slash commands) si están habilitados.`;
+    await message.channel.send({ embeds: [buildWarnEmbed(helpText)] });
+    return;
+  }
   // ------------------------------------------------------
   // Comando: !addcat <nombre>
   // ------------------------------------------------------
@@ -400,7 +447,6 @@ client.on('messageCreate', async (message) => {
   // Comando: !delcat <nombre>
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith('!delcat ')) {
-    if (!isRosterChannel) return;
     const parts = message.content.trim().split(/\s+/);
     if (parts.length < 2) return replyWarnMessage(message, 'Usage: !delcat <name>');
     const frag = parts.slice(1).join(' ');
