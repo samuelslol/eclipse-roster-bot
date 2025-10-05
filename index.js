@@ -30,13 +30,42 @@ try {
 }
 
 // Roster actualizado (en memoria)
-const roster = {
+
+const fs = require('fs');
+const STATE_FILE = 'state.json';
+let roster = {
   Council: [],
   Staff: [],
   Moderador: [],
   Eclipse: [],
   Trial: []
 };
+
+// Cargar roster desde archivo si existe
+try {
+  if (fs.existsSync(STATE_FILE)) {
+    const data = fs.readFileSync(STATE_FILE, 'utf8');
+    const obj = JSON.parse(data);
+    if (obj && typeof obj === 'object') roster = obj;
+    console.log('✅ Roster cargado desde state.json');
+  }
+} catch (e) {
+  console.warn('No se pudo cargar state.json:', e.message);
+}
+
+// Guardar roster en archivo (debounce para evitar escrituras excesivas)
+let saveTimeout = null;
+function saveRoster() {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    try {
+      fs.writeFileSync(STATE_FILE, JSON.stringify(roster, null, 2), 'utf8');
+      console.log('💾 Roster guardado en state.json');
+    } catch (e) {
+      console.warn('No se pudo guardar state.json:', e.message);
+    }
+  }, 500);
+}
 
 // Estilos disponibles para mostrar miembros de cada categoría
 const memberStyles = {
@@ -132,6 +161,8 @@ let rosterChannelId = null;
 
 client.once("ready", async () => {
   console.log(`✅ Bot conectado como ${client.user.tag}`);
+  // Mostrar estado "Jugando Gota.io"
+  client.user.setActivity("Gota.io", { type: 0 });
   // Registro de slash commands (guild) para respuestas ephemeral
   const guildId = process.env.GUILD_ID; // Añade en .env si quieres registro rápido
   const commands = [
@@ -754,6 +785,7 @@ client.on("messageCreate", async (message) => {
     const reaction = previousRole ? '🔁' : '✅';
     try { await message.react(reaction); } catch (_) { /* ignorar */ }
     await updateRosterMessage(message);
+      saveRoster();
     setTimeout(() => { message.delete().catch(() => {}); }, 500);
     return;
   }
@@ -781,6 +813,7 @@ client.on("messageCreate", async (message) => {
         found = true;
         try { await message.react('❌'); } catch (_) { /* ignorar */ }
         await updateRosterMessage(message);
+          saveRoster();
         setTimeout(() => { message.delete().catch(() => {}); }, 500);
         break;
       }
