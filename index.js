@@ -1,3 +1,5 @@
+// Definir el ID del canal de roster desde variable de entorno
+const ROSTER_CHANNEL_ID = process.env.ROSTER_CHANNEL_ID || '1373410183853772849';
 // Carga variables desde .env si existe
 try { require('dotenv').config(); } catch (_) { /* dotenv no instalado todavía */ }
 
@@ -373,7 +375,7 @@ async function updateRosterMessage(triggerMessage) {
 client.on('messageCreate', async (message) => {
   // ...existing code from tu ejemplo avanzado para +pass, +purge, +eclp, +help, etc...
   if (message.author.bot) return;
-  const isRosterChannel = message.channel.id === process.env.ROSTER_CHANNEL_ID;
+  const isRosterChannel = message.channel.id === ROSTER_CHANNEL_ID;
 
   // ------------------------------------------------------
   // Comando: !roster
