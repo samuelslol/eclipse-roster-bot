@@ -367,6 +367,9 @@ async function updateRosterMessage(triggerMessage) {
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
+  // Solo permitir comandos de roster en canal específico
+  const ROSTER_CHANNEL_ID = '1373410183853772849';
+  const isRosterChannel = message.channel.id === ROSTER_CHANNEL_ID;
 
   // ------------------------------------------------------
   // Comando de roles: +pass @usuario
@@ -374,6 +377,7 @@ client.on("messageCreate", async (message) => {
   // Solo administradores.
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith("+pass")) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
     if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
       return replyWarnMessage(message, 'You lack Administrator permission.');
     }
@@ -466,6 +470,7 @@ client.on("messageCreate", async (message) => {
   // Solo administradores.
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith("+purge")) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
     if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
       return replyWarnMessage(message, 'You lack Administrator permission.');
     }
@@ -575,6 +580,7 @@ client.on("messageCreate", async (message) => {
   // Solo administradores (igual que +pass)
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith('+eclp')) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
     if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
       return replyWarnMessage(message, 'You lack Administrator permission.');
     }
@@ -669,6 +675,7 @@ client.on("messageCreate", async (message) => {
   // Cambiar estilo: +estilo <nombre>  (alias: +estilos)
   // ------------------------------------------------------
   if (message.content.toLowerCase().startsWith('+estilo') || message.content.toLowerCase().startsWith('+styles')) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
     const parts = message.content.trim().split(/\s+/);
     if (parts.length < 2) {
       return message.channel.send({ embeds: [buildWarnEmbed(`Available styles: ${Object.keys(memberStyles).join(', ')} | Usage: +estilo name (alias: +styles name)`)] });
@@ -688,6 +695,7 @@ client.on("messageCreate", async (message) => {
   // Ayuda: +help
   // ------------------------------------------------------
   if (message.content.toLowerCase() === '+help') {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
     const ALLOWED_ROLE_IDS = ['1373410183333679152','1373410183333679151']; // unique list provided
     const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
     const hasAllowedRole = message.member?.roles?.cache?.some(r => ALLOWED_ROLE_IDS.includes(r.id));
@@ -713,6 +721,7 @@ client.on("messageCreate", async (message) => {
 
   // Añadir miembro: +nombre categoría
   if (message.content.startsWith("+")) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
     const args = message.content.slice(1).trim().split(/\s+/);
     if (args.length < 2) {
       message.channel.send({ embeds: [buildWarnEmbed('Usage: +name category OR +category name. Category can be partial (ecli, tri, coun, sta, mod).')] });
@@ -792,6 +801,7 @@ client.on("messageCreate", async (message) => {
 
   // Eliminar miembro: -nombre
   if (message.content.startsWith("-")) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
     let rawName = message.content.slice(1).trim();
     if (!rawName) {
       message.channel.send({ embeds: [buildWarnEmbed('Usage: -name OR -category name')] });
@@ -826,6 +836,58 @@ client.on("messageCreate", async (message) => {
 
   // Crear o refrescar el mensaje central del roster
   if (message.content.toLowerCase() === "!roster") {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
+
+  // ------------------------------------------------------
+  // Comando: !addcat <nombre>
+  // Agrega una nueva categoría vacía
+  // ------------------------------------------------------
+  if (message.content.toLowerCase().startsWith('!addcat ')) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
+    const parts = message.content.trim().split(/\s+/);
+    if (parts.length < 2) return replyWarnMessage(message, 'Usage: !addcat <name>');
+    const catName = parts.slice(1).join(' ');
+    if (roster[catName]) return replyWarnMessage(message, `Category '${catName}' already exists.`);
+    roster[catName] = [];
+    saveRoster();
+    await updateRosterMessage(message);
+    return message.channel.send({ embeds: [buildWarnEmbed(`✅ Category '${catName}' added.`)] });
+  }
+
+  // ------------------------------------------------------
+  // Comando: !delcat <nombre>
+  // Elimina una categoría y todos sus miembros
+  // ------------------------------------------------------
+  if (message.content.toLowerCase().startsWith('!delcat ')) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
+    const parts = message.content.trim().split(/\s+/);
+    if (parts.length < 2) return replyWarnMessage(message, 'Usage: !delcat <name>');
+    const catName = parts.slice(1).join(' ');
+    if (!roster[catName]) return replyWarnMessage(message, `Category '${catName}' does not exist.`);
+    delete roster[catName];
+    saveRoster();
+    await updateRosterMessage(message);
+    return message.channel.send({ embeds: [buildWarnEmbed(`🗑️ Category '${catName}' and its members deleted.`)] });
+  }
+
+  // ------------------------------------------------------
+  // Comando: !editcat <old> <new>
+  // Renombra una categoría (mantiene los miembros)
+  // ------------------------------------------------------
+  if (message.content.toLowerCase().startsWith('!editcat ')) {
+    if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
+    const parts = message.content.trim().split(/\s+/);
+    if (parts.length < 3) return replyWarnMessage(message, 'Usage: !editcat <oldName> <newName>');
+    const oldName = parts[1];
+    const newName = parts.slice(2).join(' ');
+    if (!roster[oldName]) return replyWarnMessage(message, `Category '${oldName}' does not exist.`);
+    if (roster[newName]) return replyWarnMessage(message, `Category '${newName}' already exists.`);
+    roster[newName] = roster[oldName];
+    delete roster[oldName];
+    saveRoster();
+    await updateRosterMessage(message);
+    return message.channel.send({ embeds: [buildWarnEmbed(`✏️ Category '${oldName}' renamed to '${newName}'.`)] });
+  }
     await updateRosterMessage(message);
     return;
   }
