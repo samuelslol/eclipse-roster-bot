@@ -358,7 +358,7 @@ async function updateRosterMessage(triggerMessage) {
       }
     }
     // Si no hay mensaje previo o no se pudo editar, enviar uno nuevo
-    const channel = triggerMessage.channel;
+  const channel = triggerMessage.channel;
     const sent = await channel.send({ embeds: [buildRosterEmbed()] });
     rosterMessageId = sent.id;
     rosterChannelId = sent.channel.id;
@@ -510,7 +510,7 @@ client.on('messageCreate', async (message) => {
 
   try {
     // Siempre buscar el último mensaje de roster en el canal para editarlo
-    const channel = triggerMessage.channel;
+  const channel = message.channel;
     const messages = await channel.messages.fetch({ limit: 10 });
     const rosterMsg = messages.find(m => m.author.id === client.user.id && m.embeds.length && m.embeds[0].title && m.embeds[0].title.includes('Eclipse Official Roster'));
     if (rosterMsg) {
