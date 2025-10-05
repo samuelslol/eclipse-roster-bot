@@ -865,12 +865,28 @@ client.on("messageCreate", async (message) => {
     if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
     const parts = message.content.trim().split(/\s+/);
     if (parts.length < 2) return replyWarnMessage(message, 'Usage: !delcat <name>');
-    const catName = parts.slice(1).join(' ');
-    if (!roster[catName]) return replyWarnMessage(message, `Category '${catName}' does not exist.`);
-    delete roster[catName];
+    const frag = parts.slice(1).join(' ');
+    // Buscar categoría por fragmento (no estricto)
+    const categories = Object.keys(roster);
+    const lc = frag.toLowerCase();
+    let match = categories.find(c => c.toLowerCase() === lc);
+    if (!match) {
+      // Buscar por prefix
+      const prefixMatches = categories.filter(c => c.toLowerCase().startsWith(lc));
+      if (prefixMatches.length === 1) match = prefixMatches[0];
+      else if (prefixMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${prefixMatches.join(', ')}`);
+      else {
+        // Buscar por includes
+        const includeMatches = categories.filter(c => c.toLowerCase().includes(lc));
+        if (includeMatches.length === 1) match = includeMatches[0];
+        else if (includeMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${includeMatches.join(', ')}`);
+      }
+    }
+    if (!match) return replyWarnMessage(message, `Category fragment '${frag}' does not match any category.`);
+    delete roster[match];
     saveRoster();
     await updateRosterMessage(message);
-    return message.channel.send({ embeds: [buildWarnEmbed(`🗑️ Category '${catName}' and its members deleted.`)] });
+    return message.channel.send({ embeds: [buildWarnEmbed(`🗑️ Category '${match}' and its members deleted.`)] });
   }
 
   // ------------------------------------------------------
@@ -881,15 +897,39 @@ client.on("messageCreate", async (message) => {
     if (!isRosterChannel) return replyWarnMessage(message, 'Category commands only allowed in the designated channel.');
     const parts = message.content.trim().split(/\s+/);
     if (parts.length < 3) return replyWarnMessage(message, 'Usage: !editcat <oldName> <newName>');
-    const oldName = parts[1];
+    const frag = parts[1];
     const newName = parts.slice(2).join(' ');
-    if (!roster[oldName]) return replyWarnMessage(message, `Category '${oldName}' does not exist.`);
+    // Buscar categoría por fragmento (no estricto)
+    const categories = Object.keys(roster);
+    const lc = frag.toLowerCase();
+    let match = categories.find(c => c.toLowerCase() === lc);
+    if (!match) {
+      // Buscar por prefix
+      const prefixMatches = categories.filter(c => c.toLowerCase().startsWith(lc));
+      if (prefixMatches.length === 1) match = prefixMatches[0];
+      else if (prefixMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${prefixMatches.join(', ')}`);
+      else {
+        // Buscar por includes
+        const includeMatches = categories.filter(c => c.toLowerCase().includes(lc));
+        if (includeMatches.length === 1) match = includeMatches[0];
+        else if (includeMatches.length > 1) return replyWarnMessage(message, `Ambiguous fragment. Matches: ${includeMatches.join(', ')}`);
+      }
+    }
+    if (!match) return replyWarnMessage(message, `Category fragment '${frag}' does not match any category.`);
     if (roster[newName]) return replyWarnMessage(message, `Category '${newName}' already exists.`);
-    roster[newName] = roster[oldName];
-    delete roster[oldName];
+    // Mantener el orden original
+    const entries = Object.entries(roster);
+    const idx = entries.findIndex(([k]) => k === match);
+    if (idx === -1) return replyWarnMessage(message, `Internal error: category not found.`);
+    const newEntries = [
+      ...entries.slice(0, idx),
+      [newName, roster[match]],
+      ...entries.slice(idx + 1)
+    ];
+    roster = Object.fromEntries(newEntries);
     saveRoster();
     await updateRosterMessage(message);
-    return message.channel.send({ embeds: [buildWarnEmbed(`✏️ Category '${oldName}' renamed to '${newName}'.`)] });
+    return message.channel.send({ embeds: [buildWarnEmbed(`✏️ Category '${match}' renamed to '${newName}'.`)] });
   }
 
   // (Removed old !estilo and !help handlers)
