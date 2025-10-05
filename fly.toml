@@ -1,0 +1,31 @@
+# fly.toml generado para el bot Discord Eclipse
+# Edita el nombre de la app tras ejecutar `fly launch` si fuera necesario.
+
+app = "eclipse-roster-bot-2025"  # Nombre único elegido; puedes cambiarlo si ya existe
+primary_region = "mad"  # Cambia a la región más cercana (ej: ewr, iad, gru, scl, mad, fra)
+
+[build]
+  # Usa el Dockerfile existente
+  dockerfile = "Dockerfile"
+
+[env]
+  # Variables no sensibles (las sensibles van como secretos)
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+# El bot no expone HTTP; esto es benigno. Puedes retirar http_service
+# y usar máquinas "standalone" si quieres:
+# [[services]]
+#   internal_port = 8080
+
+# Si implementas persistencia con volumen:
+# [[mounts]]
+#   source="roster_data"
+#   destination="/app/data"
