@@ -163,9 +163,9 @@ client.once("ready", async () => {
   console.log(`✅ Bot conectado como ${client.user.tag}`);
   // Mostrar estado "Jugando Gota.io"
   client.user.setActivity("Gota.io", { type: 0 });
-  // Registro de slash commands (guild) para respuestas ephemeral
+  // Registro de slash commands
   const guildId = process.env.GUILD_ID; // Añade en .env si quieres registro rápido
-  const commands = [
+  const guildCommands = [
     {
       name: 'pass',
       description: 'Grant Eclipse & Trial roles and remove Guest',
@@ -186,17 +186,30 @@ client.once("ready", async () => {
       options: [
         { name: 'user', description: 'Target member', type: 6, required: true }
       ]
+    },
+    {
+      name: 'hola',
+      description: 'Saluda con el bot'
     }
+  ];
+  const globalCommands = [
+    { name: 'hola', description: 'Saluda con el bot' }
   ];
   if (guildId) {
     try {
-      await client.application.commands.set(commands, guildId);
+      await client.application.commands.set(guildCommands, guildId);
       console.log(`🛠️ Slash commands registrados en guild ${guildId}`);
     } catch (err) {
       console.error('❌ Error registrando slash commands guild:', err);
     }
   } else {
     console.log('ℹ️ GUILD_ID no definido; omitiendo registro de slash commands guild. Añade GUILD_ID en .env para registro inmediato.');
+  }
+  try {
+    await client.application.commands.set(globalCommands);
+    console.log('🌐 Slash commands globales registrados.');
+  } catch (err) {
+    console.error('❌ Error registrando slash commands globales:', err);
   }
 });
 
@@ -209,6 +222,10 @@ client.on('interactionCreate', async (interaction) => {
   const adminCheck = () => interaction.memberPermissions?.has(PermissionsBitField.Flags.Administrator);
 
   const sendPublicEmbed = (embed) => interaction.channel?.send({ embeds: [embed] }).catch(()=>{});
+
+  if (interaction.commandName === 'hola') {
+    return interaction.reply({ content: '¡Hola! 👋', ephemeral: true });
+  }
 
   if (interaction.commandName === 'pass') {
     if (!adminCheck()) return interaction.reply({ content: '❌ You need Administrator.', ephemeral: true });
