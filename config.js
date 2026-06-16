@@ -3,17 +3,15 @@
 
 module.exports = {
   // IDs de canales
-  ROSTER_CHANNEL_ID: process.env.ROSTER_CHANNEL_ID || '1373410183853772849',
+  ROSTER_CHANNEL_ID: process.env.ROSTER_CHANNEL_ID || '1516577666336030801',
 
   // IDs de roles
   ROLES: {
-    ECLIPSE_BASE: process.env.ROLE_ECLIPSE_BASE || '1373410183312703568',
-    ECLIPSE_PROMO: process.env.ROLE_ECLIPSE_PROMO || '1373410183312703570',
-    TRIAL: process.env.ROLE_TRIAL || '1373410183312703569',
-    ACADEMY: process.env.ROLE_ACADEMY || '1388667580407087154',
-    GUEST: process.env.ROLE_GUEST || '1373410183249920113',
+    ECLIPSE: process.env.ROLE_ECLIPSE || '1516567986163683430',
+    MEMBER: process.env.ROLE_MEMBER || '1487901133136461855',
+    GUEST: process.env.ROLE_GUEST || '1487881657628364981',
   },
 
-  // IDs de roles permitidos para comandos especiales
-  ALLOWED_ROLE_IDS: (process.env.ALLOWED_ROLE_IDS || '1373410183333679152,1373410183333679151').split(','),
+  // IDs de roles permitidos para comandos especiales (+help)
+  ALLOWED_ROLE_IDS: (process.env.ALLOWED_ROLE_IDS || '1488043849430601728,1490566406041899049').split(','),
 };
