@@ -2,6 +2,7 @@
 try { require('dotenv').config(); } catch (_) { /* dotenv no instalado todavía */ }
 
 const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField } = require("discord.js");
+const config = require('./config');
 
 const client = new Client({
   intents: [
@@ -234,12 +235,9 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
       return interaction.reply({ content: '❌ I lack Manage Roles permission.', ephemeral: true });
     }
-    const ECLIPSE_ROLE_ID = '1373410183312703568';
-    const GUEST_ROLE_ID   = '1373410183249920113';
-    const TRIAL_ROLE_ID   = '1373410183312703569';
-    const eclipseRole = interaction.guild.roles.cache.get(ECLIPSE_ROLE_ID);
-    const guestRole   = interaction.guild.roles.cache.get(GUEST_ROLE_ID);
-    const trialRole   = interaction.guild.roles.cache.get(TRIAL_ROLE_ID);
+    const eclipseRole = interaction.guild.roles.cache.get(config.ROLES.ECLIPSE_BASE);
+    const guestRole   = interaction.guild.roles.cache.get(config.ROLES.GUEST);
+    const trialRole   = interaction.guild.roles.cache.get(config.ROLES.TRIAL);
     if (!eclipseRole || !guestRole || !trialRole) {
       return interaction.reply({ content: '❌ Role IDs misconfigured.', ephemeral: true });
     }
@@ -250,9 +248,9 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
     const toAdd = []; const toRemove = []; const changes = [];
-    if (!target.roles.cache.has(ECLIPSE_ROLE_ID)) { toAdd.push(ECLIPSE_ROLE_ID); changes.push(`+${eclipseRole.name}`); }
-    if (!target.roles.cache.has(TRIAL_ROLE_ID))   { toAdd.push(TRIAL_ROLE_ID);   changes.push(`+${trialRole.name}`); }
-    if (target.roles.cache.has(GUEST_ROLE_ID))    { toRemove.push(GUEST_ROLE_ID); changes.push(`-${guestRole.name}`); }
+    if (!target.roles.cache.has(config.ROLES.ECLIPSE_BASE)) { toAdd.push(config.ROLES.ECLIPSE_BASE); changes.push(`+${eclipseRole.name}`); }
+    if (!target.roles.cache.has(config.ROLES.TRIAL))   { toAdd.push(config.ROLES.TRIAL);   changes.push(`+${trialRole.name}`); }
+    if (target.roles.cache.has(config.ROLES.GUEST))    { toRemove.push(config.ROLES.GUEST); changes.push(`-${guestRole.name}`); }
     if (!changes.length) return interaction.reply({ content: '⚠️ No changes to apply.', ephemeral: true });
     try {
       if (toAdd.length) await target.roles.add(toAdd, `Slash /pass by ${interaction.user.tag}`);
@@ -273,16 +271,13 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
       return interaction.reply({ content: '❌ I lack Manage Roles permission.', ephemeral: true });
     }
-    const ECLIPSE_ROLE_IDS = ['1373410183312703570','1373410183312703568'];
-    const TRIAL_ROLE_ID    = '1373410183312703569';
-    const ACADEMY_ROLE_ID  = '1388667580407087154';
-    const GUEST_ROLE_ID    = '1373410183249920113';
-    const guestRole = interaction.guild.roles.cache.get(GUEST_ROLE_ID);
+    const guestRole = interaction.guild.roles.cache.get(config.ROLES.GUEST);
     if (!guestRole) return interaction.reply({ content: '❌ Guest role missing.', ephemeral: true });
     const toRemove = [];
-    for (const rid of ECLIPSE_ROLE_IDS) if (target.roles.cache.has(rid)) toRemove.push(rid);
-    if (target.roles.cache.has(TRIAL_ROLE_ID)) toRemove.push(TRIAL_ROLE_ID);
-    if (target.roles.cache.has(ACADEMY_ROLE_ID)) toRemove.push(ACADEMY_ROLE_ID);
+    const eclipseRoleIds = [config.ROLES.ECLIPSE_PROMO, config.ROLES.ECLIPSE_BASE];
+    for (const rid of eclipseRoleIds) if (target.roles.cache.has(rid)) toRemove.push(rid);
+    if (target.roles.cache.has(config.ROLES.TRIAL)) toRemove.push(config.ROLES.TRIAL);
+    if (target.roles.cache.has(config.ROLES.ACADEMY)) toRemove.push(config.ROLES.ACADEMY);
     const uniq = [...new Set(toRemove)];
     const changes = [];
     try {
@@ -291,8 +286,8 @@ client.on('interactionCreate', async (interaction) => {
         for (const id of uniq) changes.push(`-${interaction.guild.roles.cache.get(id)?.name || id}`);
       }
     } catch (err) { console.error('Slash /purge remove error:', err); return interaction.reply({ content: '❌ Error removing roles.', ephemeral: true }); }
-    if (!target.roles.cache.has(GUEST_ROLE_ID)) {
-      try { await target.roles.add(GUEST_ROLE_ID, `Slash /purge by ${interaction.user.tag}`); changes.push(`+${guestRole.name}`); } catch (err) { console.error('Slash /purge add guest error:', err); return interaction.reply({ content: '❌ Error adding Guest.', ephemeral: true }); }
+    if (!target.roles.cache.has(config.ROLES.GUEST)) {
+      try { await target.roles.add(config.ROLES.GUEST, `Slash /purge by ${interaction.user.tag}`); changes.push(`+${guestRole.name}`); } catch (err) { console.error('Slash /purge add guest error:', err); return interaction.reply({ content: '❌ Error adding Guest.', ephemeral: true }); }
     }
     const hadNickname = !!target.nickname;
     if (hadNickname && interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
@@ -312,25 +307,20 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
       return interaction.reply({ content: '❌ I lack Manage Roles permission.', ephemeral: true });
     }
-    const ECLIPSE_ROLE_ID_PROMO = '1373410183312703570';
-    const ECLIPSE_ROLE_ID_BASE = '1373410183312703568'; // Also ensure base Eclipse role present
-    const GUEST_ROLE_ID = '1373410183249920113'; // remove Guest if present
-    const TRIAL_ROLE_ID = '1373410183312703569';
-  const ACADEMY_ROLE_ID = '1388667580407087154'; // also add Academy role on promotion
-    const eclipseRolePromo = interaction.guild.roles.cache.get(ECLIPSE_ROLE_ID_PROMO);
-    const eclipseRoleBase = interaction.guild.roles.cache.get(ECLIPSE_ROLE_ID_BASE);
-    const guestRole = interaction.guild.roles.cache.get(GUEST_ROLE_ID);
-    const trialRole = interaction.guild.roles.cache.get(TRIAL_ROLE_ID);
-  const academyRole = interaction.guild.roles.cache.get(ACADEMY_ROLE_ID);
-  if (!eclipseRolePromo || !eclipseRoleBase || !trialRole) return interaction.reply({ content: '❌ Role IDs misconfigured.', ephemeral: true });
+    const eclipseRolePromo = interaction.guild.roles.cache.get(config.ROLES.ECLIPSE_PROMO);
+    const eclipseRoleBase = interaction.guild.roles.cache.get(config.ROLES.ECLIPSE_BASE);
+    const guestRole = interaction.guild.roles.cache.get(config.ROLES.GUEST);
+    const trialRole = interaction.guild.roles.cache.get(config.ROLES.TRIAL);
+    const academyRole = interaction.guild.roles.cache.get(config.ROLES.ACADEMY);
+    if (!eclipseRolePromo || !eclipseRoleBase || !trialRole) return interaction.reply({ content: '❌ Role IDs misconfigured.', ephemeral: true });
     const botHighest = interaction.guild.members.me.roles.highest.position;
-  for (const r of [eclipseRolePromo, eclipseRoleBase, trialRole, guestRole, academyRole]) if (r && r.position >= botHighest) return interaction.reply({ content: `❌ Role ${r.name} is above me.`, ephemeral: true });
+    for (const r of [eclipseRolePromo, eclipseRoleBase, trialRole, guestRole, academyRole]) if (r && r.position >= botHighest) return interaction.reply({ content: `❌ Role ${r.name} is above me.`, ephemeral: true });
     const adds = []; const removes = []; const changes = [];
-    if (!target.roles.cache.has(ECLIPSE_ROLE_ID_PROMO)) { adds.push(ECLIPSE_ROLE_ID_PROMO); changes.push(`+${eclipseRolePromo.name}`); }
-    if (!target.roles.cache.has(ECLIPSE_ROLE_ID_BASE)) { adds.push(ECLIPSE_ROLE_ID_BASE); changes.push(`+${eclipseRoleBase.name}`); }
-    if (target.roles.cache.has(TRIAL_ROLE_ID)) { removes.push(TRIAL_ROLE_ID); changes.push(`-${trialRole.name}`); }
-    if (guestRole && target.roles.cache.has(GUEST_ROLE_ID)) { removes.push(GUEST_ROLE_ID); changes.push(`-${guestRole.name}`); }
-  if (academyRole && !target.roles.cache.has(ACADEMY_ROLE_ID)) { adds.push(ACADEMY_ROLE_ID); changes.push(`+${academyRole.name}`); }
+    if (!target.roles.cache.has(config.ROLES.ECLIPSE_PROMO)) { adds.push(config.ROLES.ECLIPSE_PROMO); changes.push(`+${eclipseRolePromo.name}`); }
+    if (!target.roles.cache.has(config.ROLES.ECLIPSE_BASE)) { adds.push(config.ROLES.ECLIPSE_BASE); changes.push(`+${eclipseRoleBase.name}`); }
+    if (target.roles.cache.has(config.ROLES.TRIAL)) { removes.push(config.ROLES.TRIAL); changes.push(`-${trialRole.name}`); }
+    if (guestRole && target.roles.cache.has(config.ROLES.GUEST)) { removes.push(config.ROLES.GUEST); changes.push(`-${guestRole.name}`); }
+    if (academyRole && !target.roles.cache.has(config.ROLES.ACADEMY)) { adds.push(config.ROLES.ACADEMY); changes.push(`+${academyRole.name}`); }
     if (!changes.length) return interaction.reply({ content: '⚠️ Nothing to change.', ephemeral: true });
     try { if (adds.length) await target.roles.add(adds, `Slash /eclp by ${interaction.user.tag}`); if (removes.length) await target.roles.remove(removes, `Slash /eclp by ${interaction.user.tag}`); }
     catch (err) { console.error('Slash /eclp error:', err); return interaction.reply({ content: '❌ Error applying roles.', ephemeral: true }); }
@@ -385,8 +375,7 @@ async function updateRosterMessage(triggerMessage) {
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   // Solo permitir comandos de roster en canal específico
-  const ROSTER_CHANNEL_ID = '1373410183853772849';
-  const isRosterChannel = message.channel.id === ROSTER_CHANNEL_ID;
+  const isRosterChannel = message.channel.id === config.ROSTER_CHANNEL_ID;
 
   // ------------------------------------------------------
   // Comando de roles: +pass @usuario
@@ -398,9 +387,6 @@ client.on("messageCreate", async (message) => {
     if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
       return replyWarnMessage(message, 'You lack Administrator permission.');
     }
-    const ECLIPSE_ROLE_ID = '1373410183312703568';
-    const GUEST_ROLE_ID   = '1373410183249920113';
-    const TRIAL_ROLE_ID   = '1373410183312703569';
 
     // Obtener target: mención o fragmento de nombre
     let target = message.mentions.members?.first();
@@ -427,9 +413,9 @@ client.on("messageCreate", async (message) => {
     const roleRemoveIds = [];
     const changes = [];
 
-    const eclipseRole = message.guild.roles.cache.get(ECLIPSE_ROLE_ID);
-    const guestRole   = message.guild.roles.cache.get(GUEST_ROLE_ID);
-    const trialRole   = message.guild.roles.cache.get(TRIAL_ROLE_ID);
+    const eclipseRole = message.guild.roles.cache.get(config.ROLES.ECLIPSE_BASE);
+    const guestRole   = message.guild.roles.cache.get(config.ROLES.GUEST);
+    const trialRole   = message.guild.roles.cache.get(config.ROLES.TRIAL);
 
     if (!eclipseRole || !guestRole || !trialRole) {
       return replyWarnMessage(message, 'One or more role IDs are invalid (check code).');
@@ -444,18 +430,18 @@ client.on("messageCreate", async (message) => {
     }
 
     // Añadir Eclipse
-    if (!target.roles.cache.has(ECLIPSE_ROLE_ID)) {
-      roleAddIds.push(ECLIPSE_ROLE_ID);
+    if (!target.roles.cache.has(config.ROLES.ECLIPSE_BASE)) {
+      roleAddIds.push(config.ROLES.ECLIPSE_BASE);
       changes.push(`+${eclipseRole.name}`);
     }
     // Añadir Trial
-    if (!target.roles.cache.has(TRIAL_ROLE_ID)) {
-      roleAddIds.push(TRIAL_ROLE_ID);
+    if (!target.roles.cache.has(config.ROLES.TRIAL)) {
+      roleAddIds.push(config.ROLES.TRIAL);
       changes.push(`+${trialRole.name}`);
     }
     // Remover Guest
-    if (target.roles.cache.has(GUEST_ROLE_ID)) {
-      roleRemoveIds.push(GUEST_ROLE_ID);
+    if (target.roles.cache.has(config.ROLES.GUEST)) {
+      roleRemoveIds.push(config.ROLES.GUEST);
       changes.push(`-${guestRole.name}`);
     }
 
@@ -491,10 +477,6 @@ client.on("messageCreate", async (message) => {
     if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
       return replyWarnMessage(message, 'You lack Administrator permission.');
     }
-  const ECLIPSE_ROLE_IDS = ['1373410183312703570','1373410183312703568'];
-  const TRIAL_ROLE_ID    = '1373410183312703569';
-  const ACADEMY_ROLE_ID  = '1388667580407087154';
-  const GUEST_ROLE_ID    = '1373410183249920113';
 
     let target = message.mentions.members?.first();
     if (!target) {
@@ -514,7 +496,7 @@ client.on("messageCreate", async (message) => {
       return replyWarnMessage(message, 'Bot lacks Manage Roles permission.');
     }
 
-    const guestRole = message.guild.roles.cache.get(GUEST_ROLE_ID);
+    const guestRole = message.guild.roles.cache.get(config.ROLES.GUEST);
     if (!guestRole) {
       return replyWarnMessage(message, 'Guest role not found (check ID).');
     }
@@ -522,16 +504,17 @@ client.on("messageCreate", async (message) => {
     const toRemove = [];
     const changes = [];
 
-    for (const rid of ECLIPSE_ROLE_IDS) {
+    const eclipseRoleIds = [config.ROLES.ECLIPSE_PROMO, config.ROLES.ECLIPSE_BASE];
+    for (const rid of eclipseRoleIds) {
       if (target.roles.cache.has(rid)) {
         toRemove.push(rid);
       }
     }
-    if (target.roles.cache.has(TRIAL_ROLE_ID)) {
-      toRemove.push(TRIAL_ROLE_ID);
+    if (target.roles.cache.has(config.ROLES.TRIAL)) {
+      toRemove.push(config.ROLES.TRIAL);
     }
-    if (target.roles.cache.has(ACADEMY_ROLE_ID)) {
-      toRemove.push(ACADEMY_ROLE_ID);
+    if (target.roles.cache.has(config.ROLES.ACADEMY)) {
+      toRemove.push(config.ROLES.ACADEMY);
     }
 
     // Ordenar para evitar duplicados accidentales
@@ -550,9 +533,9 @@ client.on("messageCreate", async (message) => {
     }
 
     // Añadir Guest si no lo tiene
-    if (!target.roles.cache.has(GUEST_ROLE_ID)) {
+    if (!target.roles.cache.has(config.ROLES.GUEST)) {
       try {
-        await target.roles.add(GUEST_ROLE_ID, `+purge por ${message.author.tag}`);
+        await target.roles.add(config.ROLES.GUEST, `+purge por ${message.author.tag}`);
         changes.push(`+${guestRole.name}`);
       } catch (err) {
         console.error("Error añadiendo Guest en +purge:", err);
@@ -585,7 +568,7 @@ client.on("messageCreate", async (message) => {
       try { await message.react('❌'); } catch(_) {}
       const noChangeEmbed = buildWarnEmbed('Nothing to purge: no roles removed and Guest already present.');
       message.channel.send({ embeds: [noChangeEmbed] }).catch(()=>{});
-      return; 
+      return;
     }
 
     const purgeEmbed = new EmbedBuilder()
@@ -606,11 +589,6 @@ client.on("messageCreate", async (message) => {
     if (!message.member?.permissions?.has(PermissionsBitField.Flags.Administrator)) {
       return replyWarnMessage(message, 'You lack Administrator permission.');
     }
-    const ECLIPSE_ROLE_ID_PROMO = '1373410183312703570';
-    const ECLIPSE_ROLE_ID_BASE = '1373410183312703568'; // ensure base role also present
-    const GUEST_ROLE_ID = '1373410183249920113'; // remove Guest if present
-    const TRIAL_ROLE_ID = '1373410183312703569';
-  const ACADEMY_ROLE_ID = '1388667580407087154'; // also add Academy role on promotion
 
     let target = message.mentions.members?.first();
     if (!target) {
@@ -631,11 +609,11 @@ client.on("messageCreate", async (message) => {
       return replyWarnMessage(message, 'Bot lacks Manage Roles permission.');
     }
 
-    const eclipseRolePromo = message.guild.roles.cache.get(ECLIPSE_ROLE_ID_PROMO);
-    const eclipseRoleBase = message.guild.roles.cache.get(ECLIPSE_ROLE_ID_BASE);
-    const guestRole = message.guild.roles.cache.get(GUEST_ROLE_ID);
-    const trialRole = message.guild.roles.cache.get(TRIAL_ROLE_ID);
-    const academyRole = message.guild.roles.cache.get(ACADEMY_ROLE_ID);
+    const eclipseRolePromo = message.guild.roles.cache.get(config.ROLES.ECLIPSE_PROMO);
+    const eclipseRoleBase = message.guild.roles.cache.get(config.ROLES.ECLIPSE_BASE);
+    const guestRole = message.guild.roles.cache.get(config.ROLES.GUEST);
+    const trialRole = message.guild.roles.cache.get(config.ROLES.TRIAL);
+    const academyRole = message.guild.roles.cache.get(config.ROLES.ACADEMY);
     if (!eclipseRolePromo || !eclipseRoleBase || !trialRole) {
       return replyWarnMessage(message, 'One or more role IDs invalid (Eclipse base/promo or Trial).');
     }
@@ -651,24 +629,24 @@ client.on("messageCreate", async (message) => {
     const removes = [];
     const changes = [];
 
-    if (!target.roles.cache.has(ECLIPSE_ROLE_ID_PROMO)) {
-      adds.push(ECLIPSE_ROLE_ID_PROMO);
+    if (!target.roles.cache.has(config.ROLES.ECLIPSE_PROMO)) {
+      adds.push(config.ROLES.ECLIPSE_PROMO);
       changes.push(`+${eclipseRolePromo.name}`);
     }
-    if (!target.roles.cache.has(ECLIPSE_ROLE_ID_BASE)) {
-      adds.push(ECLIPSE_ROLE_ID_BASE);
+    if (!target.roles.cache.has(config.ROLES.ECLIPSE_BASE)) {
+      adds.push(config.ROLES.ECLIPSE_BASE);
       changes.push(`+${eclipseRoleBase.name}`);
     }
-    if (target.roles.cache.has(TRIAL_ROLE_ID)) {
-      removes.push(TRIAL_ROLE_ID);
+    if (target.roles.cache.has(config.ROLES.TRIAL)) {
+      removes.push(config.ROLES.TRIAL);
       changes.push(`-${trialRole.name}`);
     }
-    if (guestRole && target.roles.cache.has(GUEST_ROLE_ID)) {
-      removes.push(GUEST_ROLE_ID);
+    if (guestRole && target.roles.cache.has(config.ROLES.GUEST)) {
+      removes.push(config.ROLES.GUEST);
       changes.push(`-${guestRole.name}`);
     }
-    if (academyRole && !target.roles.cache.has(ACADEMY_ROLE_ID)) {
-      adds.push(ACADEMY_ROLE_ID);
+    if (academyRole && !target.roles.cache.has(config.ROLES.ACADEMY)) {
+      adds.push(config.ROLES.ACADEMY);
       changes.push(`+${academyRole.name}`);
     }
 
@@ -718,9 +696,8 @@ client.on("messageCreate", async (message) => {
   // ------------------------------------------------------
   if (message.content.toLowerCase() === '+help') {
     if (!isRosterChannel) return replyWarnMessage(message, 'Roster commands only allowed in the designated channel.');
-    const ALLOWED_ROLE_IDS = ['1373410183333679152','1373410183333679151']; // unique list provided
     const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
-    const hasAllowedRole = message.member?.roles?.cache?.some(r => ALLOWED_ROLE_IDS.includes(r.id));
+    const hasAllowedRole = message.member?.roles?.cache?.some(r => config.ALLOWED_ROLE_IDS.includes(r.id));
     if (!isAdmin && !hasAllowedRole) {
       return replyWarnMessage(message, 'Help command restricted: need Administrator or required role.');
     }
